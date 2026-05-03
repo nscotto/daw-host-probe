@@ -1,0 +1,134 @@
+name: Capture submission
+description: Submit a daw-host-probe log capture for one host / format / OS.
+title: "Capture: <host> <version> <format> — <os>"
+labels: ["capture"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing a capture! Please fill in every field — they're used to index your logs in the findings site.
+
+        Attach your log files as a single zip in the **Logs** field below. By submitting, you license the logs under CC0 (see [README → Privacy](../README.md#privacy)).
+  - type: input
+    id: host
+    attributes:
+      label: DAW
+      description: e.g. REAPER, Ableton Live, Bitwig Studio, Renoise, Cubase, FL Studio, Logic Pro, Studio One, Reason, Tracktion Waveform, Cakewalk
+      placeholder: REAPER
+    validations:
+      required: true
+  - type: input
+    id: host_version
+    attributes:
+      label: DAW version
+      description: Exact version string from the DAW's About box.
+      placeholder: 7.34
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: Plugin format
+      options:
+        - CLAP
+        - VST3
+        - AUv2
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: os_version
+    attributes:
+      label: OS version
+      placeholder: Windows 11 23H2 / macOS 14.4 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: sample_rate
+    attributes:
+      label: Sample rate (Hz)
+      placeholder: "48000"
+    validations:
+      required: true
+  - type: input
+    id: buffer_size
+    attributes:
+      label: Buffer size (samples)
+      placeholder: "512"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Capture mode
+      options:
+        - Live playback
+        - Offline render
+        - Both (logs included for each)
+    validations:
+      required: true
+  - type: input
+    id: probe_version
+    attributes:
+      label: Probe version
+      description: Visible in the probe UI or the release filename.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: cases
+    attributes:
+      label: Cases included
+      description: List the case IDs you captured (e.g. L1.1, L1.2, L2.3). One per line is fine.
+      placeholder: |
+        L1.1
+        L1.2
+        L1.3
+    validations:
+      required: true
+  - type: textarea
+    id: deviations
+    attributes:
+      label: Deviations from the case steps
+      description: Anything you had to do differently — different MIDI clip placement, different loop range, host couldn't perform a step, etc.
+      placeholder: Host doesn't support arrangement loop with non-bar boundaries; loop set 2.1.1–4.1.1 instead.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Drop a single zip here containing all log files for this submission. Drag-and-drop into this field works.
+      placeholder: |
+        Drag your zip file into this box.
+    validations:
+      required: true
+  - type: dropdown
+    id: credit
+    attributes:
+      label: Credit
+      description: Would you like to be credited in CAPTURERS.md?
+      options:
+        - "Yes — credit me by my GitHub username"
+        - "Yes — I'll provide a name in the comments"
+        - "No — keep this anonymous"
+    validations:
+      required: true
+  - type: checkboxes
+    id: license
+    attributes:
+      label: License
+      options:
+        - label: I license the attached logs under CC0 1.0 Universal.
+          required: true
+        - label: The logs contain no audio, project content, or personal information I'm not willing to publish.
+          required: true

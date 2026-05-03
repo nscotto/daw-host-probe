@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/OWNER/daw-host-probe-captures/main/manifest.schema.json",
+  "captureVersion": 1,
+  "probeVersion": "0.1.0",
+  "contributor": {
+    "name": "",
+    "githubUser": "",
+    "creditOptIn": true
+  },
+  "host": {
+    "name": "",
+    "version": "",
+    "format": "CLAP",
+    "os": "Windows",
+    "osVersion": ""
+  },
+  "audio": {
+    "sampleRate": 48000,
+    "bufferSize": 512,
+    "mode": "live"
+  },
+  "caseId": "",
+  "takeNumber": 1,
+  "timestampUtc": "",
+  "deviations": "",
+  "notes": ""
+}

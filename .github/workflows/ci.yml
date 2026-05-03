@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            runner: windows-latest
+          - os: macos
+            runner: macos-latest
+          - os: linux
+            runner: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build tools
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev
+
+      - name: Install macOS tools
+        if: matrix.os == 'macos'
+        run: |
+          brew install ninja
+
+      - name: Configure (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.os == 'macos' && '-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0' || '' }}
+
+      - name: Configure (Windows)
+        if: matrix.os == 'windows'
+        run: cmake -S . -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: List build artifacts
+        shell: bash
+        run: |
+          # .clap is a flat file on Linux/Windows but a bundle directory on
+          # macOS. .vst3 and .component are bundle directories everywhere.
+          # The "*/<name>/*" exclusion drops the inner Mach-O / DLL nested
+          # inside the bundle.
+          echo "--- .clap ---"
+          find build -name "daw-host-probe.clap" \
+            -not -path "*/_deps/*" \
+            -not -path "*/daw-host-probe.clap/*" || true
+          echo "--- .vst3 ---"
+          find build -name "daw-host-probe.vst3" \
+            -not -path "*/_deps/*" \
+            -not -path "*/daw-host-probe.vst3/*" || true
+          echo "--- .component (macOS) ---"
+          find build -name "daw-host-probe.component" \
+            -not -path "*/_deps/*" \
+            -not -path "*/daw-host-probe.component/*" || true

@@ -1,0 +1,543 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "L1",
+      "title": "Level 1: Baseline Host Semantics",
+      "cases": [
+        {
+          "id": "L1.1",
+          "title": "Idle and Transport Start",
+          "purpose": "Establish transport flag behavior, position continuity, reset behavior, and stopped-state silence without spending time on MIDI; MIDI event baselines are captured in L1.2.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled, with no MIDI clip for this case.",
+            "Initial transport state: stopped, playhead at bar 1.1.1, plugin loaded."
+          ],
+          "steps": [
+            "Start a new capture log before pressing play.",
+            "First start/stop: with the playhead at bar 1.1.1, press play.",
+            "First stop: after playback reaches the loop at bar 2.1.1, stop before the first wrap, around bar 2.3.1.",
+            "Restart: wait two seconds, then press play again from the stopped position around bar 2.3.1.",
+            "Loop observation: let playback wrap twice at loop end bar 3.1.1.",
+            "Seek: while playback continues, seek back to the middle of the loop around bar 2.3.1.",
+            "Post-seek observation: let playback wrap two more times at loop end bar 3.1.1.",
+            "Final stop: stop during the next loop pass around bar 2.3.1, not on a note boundary and not on loop start/end.",
+            "Wait at least two seconds with transport stopped before ending the capture."
+          ],
+          "expected": "Transport flags toggle cleanly across stop/start; position continues from the same frame on restart; host reports stopped-state silence or inactivity consistently.",
+          "references": []
+        },
+        {
+          "id": "L1.2",
+          "title": "Arrangement Loop and MIDI Baseline",
+          "purpose": "Baseline the host's one-bar arrangement loop while sweeping the core generated MIDI files in separate capture logs, so the shared setup is configured only once.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: create one separate capture log for each file: single-c4-anchor.mid, sparse-multi-anchor.mid, repeated-same-key.mid, velocity-sweep.mid, and pitch-sweep.mid. Place exactly one file at project bar 2.1.1 for each capture log.",
+            "Plugin parameters neutral.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "For each MIDI file listed in MIDI setup, start a new capture log before pressing play.",
+            "Press play from bar 1.1.1.",
+            "Let playback enter the loop at bar 2.1.1.",
+            "Count four wraps at loop end bar 3.1.1.",
+            "After the fourth wrap, continue into the fifth loop pass.",
+            "Stop near the middle of the fifth loop pass, around bar 2.3.1, not on a note boundary and not on loop start/end.",
+            "Wait at least two seconds with transport stopped before ending the capture.",
+            "Capture note-on and note-off times.",
+            "Capture note IDs or host identity fields where available.",
+            "Capture channel, key, velocity, and note-expression data where available.",
+            "Capture event ordering within the process block.",
+            "Note any differences between first pass and later loop passes."
+          ],
+          "expected": "Transport flags are consistent across wraps; pass-to-pass MIDI event timing is stable; note IDs are stable or regenerated consistently within host jitter tolerance.",
+          "references": []
+        },
+        {
+          "id": "L1.3",
+          "title": "Live Versus Offline",
+          "purpose": "Detect different block cadence, transport flags, event order, and loop position reporting during offline rendering.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place single-c4-anchor.mid at project bar 2.1.1 in both live and offline captures.",
+            "Plugin parameters neutral.",
+            "Initial playhead for live capture: bar 1.1.1."
+          ],
+          "steps": [
+            "Live capture: press play from bar 1.1.1.",
+            "Live capture: count four wraps at loop end bar 3.1.1.",
+            "Live capture: after the fourth wrap, stop during the fifth loop pass around bar 2.3.1.",
+            "Capture an offline render or freeze/export from bar 1.1.1 through bar 3.3.1, covering the pre-roll, four loop wraps, and half of the fifth pass.",
+            "Record the host's render mode (realtime, offline, freeze, bounce-in-place)."
+          ],
+          "expected": "Block cadence and transport flags may differ between live and offline; do not treat audio differences as plugin failures unless they explain missing or corrupt logs.",
+          "references": []
+        },
+        {
+          "id": "L1.4",
+          "title": "Buffer and Sample Rate Spread",
+          "purpose": "Expose block-boundary and latency assumptions without turning the first pass into full sample-rate QA.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place single-c4-anchor.mid at project bar 2.1.1.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "At 48 kHz with a small buffer (64 or 128 samples), press play from bar 1.1.1, count four wraps at loop end bar 3.1.1, then stop during the fifth loop pass around bar 2.3.1.",
+            "At 48 kHz with a large buffer (512 or 1024 samples), press play from bar 1.1.1, count four wraps at loop end bar 3.1.1, then stop during the fifth loop pass around bar 2.3.1.",
+            "At 44.1 kHz or 96 kHz, press play from bar 1.1.1, count four wraps at loop end bar 3.1.1, then stop during the fifth loop pass around bar 2.3.1 if quick to configure."
+          ],
+          "expected": "Behaviour is consistent across buffer sizes and sample rates; block boundaries follow the host's reported buffer.",
+          "references": []
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "title": "Level 2: Required Corner Cases",
+      "cases": [
+        {
+          "id": "L2.1",
+          "title": "Loop Boundary Inside Block",
+          "purpose": "Determine whether the host reports wrap early, exactly at the split, late, or only through position rewind on the next block.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1; adjust both slightly only if needed to force the wrap inside a process block.",
+            "Choose buffer size, or shift the loop start/end by a small musical amount, so the transport wrap occurs inside a process block.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place boundary-adjacent.mid at the configured loop start.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Start capture at bar 1.1.1 and press play.",
+            "Let playback enter the loop and cross the configured one-bar loop end four times.",
+            "Stop during the fifth loop pass near the middle of the loop, away from note and loop boundaries.",
+            "Record where the wrap appears in the log relative to the block split."
+          ],
+          "expected": "Wrap is reported either inside the block, exactly at split, or via rewind on the next block; behaviour is consistent across passes.",
+          "references": []
+        },
+        {
+          "id": "L2.2",
+          "title": "Short Loop Near Buffer Size",
+          "purpose": "Reveal assumptions that only work when a loop spans many process blocks.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: choose exact start and end positions that make the loop close to the active buffer size; record both.",
+            "Use a sub-beat loop only for this case; record the exact loop start, loop end, and length.",
+            "Optionally also test a loop shorter than the buffer if the host remains usable.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: optional; if used, place single-c4-anchor.mid at the configured short-loop start.",
+            "Initial playhead: just before the short loop start."
+          ],
+          "steps": [
+            "Start capture immediately before pressing play.",
+            "Let playback cross the short loop boundary at least four times.",
+            "Stop inside the loop, away from note and loop boundaries.",
+            "Observe whether the host emits multiple wraps per block or batches them."
+          ],
+          "expected": "The host reports each loop wrap with stable position math, even when a loop fits inside a single block.",
+          "references": []
+        },
+        {
+          "id": "L2.3",
+          "title": "Non-Zero Loop Start",
+          "purpose": "Confirm whether loop-relative anchors are computed from the true loop start rather than project position zero.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 3.1.1; end bar 4.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place sparse-multi-anchor.mid at project bar 3.1.1.",
+            "Initial playhead: bar 2.1.1."
+          ],
+          "steps": [
+            "Start capture, place the playhead at bar 2.1.1, and press play.",
+            "Let playback enter the loop at bar 3.1.1 and cross the loop end at bar 4.1.1 four times.",
+            "After the fourth wrap, stop during the fifth pass near bar 3.3.1.",
+            "Compare reported loop start/end against expected bar positions."
+          ],
+          "expected": "Loop start/end positions match the configured bars regardless of distance from project zero.",
+          "references": []
+        },
+        {
+          "id": "L2.4",
+          "title": "Loop Edit During Playback",
+          "purpose": "Capture whether the host emits explicit loop updates, position jumps, event flushes, or stale note state.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1 initially; end bar 3.1.1 initially; edit both during playback.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place sparse-multi-anchor.mid at project bar 2.1.1.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Start capture, place the playhead at bar 1.1.1, and press play.",
+            "Wait until the second loop pass has begun.",
+            "Move the loop start during playback.",
+            "Let two wraps complete after the edit.",
+            "Move the loop end during playback.",
+            "Let two wraps complete after the edit.",
+            "Resize the loop while MIDI notes continue to repeat.",
+            "Let two wraps complete after the final edit, then stop near the middle of the active loop."
+          ],
+          "expected": "Host emits loop-position changes promptly; note state remains coherent or is explicitly cleared.",
+          "references": []
+        },
+        {
+          "id": "L2.5",
+          "title": "MIDI Edit During Playback",
+          "purpose": "Distinguish intentional live edits from host jitter and stale learned timing by observing what the host sends and when.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place live-edit-source.mid at project bar 2.1.1. During playback, edit note start, note end, pitch, and velocity.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Start capture, place the playhead at bar 1.1.1, and press play.",
+            "Wait until the second loop pass has begun.",
+            "Move a note start earlier by a small amount.",
+            "Let two wraps complete.",
+            "Move the same note later by a larger amount.",
+            "Drag a note-off earlier while looping.",
+            "Change one note pitch.",
+            "Change one note velocity.",
+            "Let two wraps complete after each edit before performing the next.",
+            "Stop near the middle of the active loop after the final edit has been observed for two wraps."
+          ],
+          "expected": "Edits propagate to the next pass, immediately, or only after transport restart depending on host; pattern is consistent.",
+          "references": []
+        },
+        {
+          "id": "L2.6",
+          "title": "Same-Key and Same-Sample Transitions",
+          "purpose": "Characterize event order, note identity stability, and release/choke semantics.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: create one separate capture log for each file: repeated-same-key.mid, same-sample-transition.mid, and overlap-and-choke.mid. Place each file at project bar 2.1.1.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Start capture.",
+            "For repeated same-key notes, start at bar 1.1.1, cross the loop end four times, and stop during the fifth pass near bar 2.3.1.",
+            "For same-sample note transitions, start at bar 1.1.1, cross the loop end four times, and stop during the fifth pass near bar 2.3.1.",
+            "For overlap/choke notes, start at bar 1.1.1, cross the loop end four times, and stop during the fifth pass near bar 2.3.1 if the host allows overlapping same-key notes."
+          ],
+          "expected": "Same-frame note-off precedes note-on (or the host's documented order); note IDs remain unique per overlap.",
+          "references": []
+        },
+        {
+          "id": "L2.7",
+          "title": "Held Notes Across Loop Boundary",
+          "purpose": "Observe whether the host sends note-off, note-on, note expression, or active-note state at the loop boundary.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place boundary-held.mid at project bar 2.1.1.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Run with gate enabled from bar 1.1.1, crossing the loop end four times and stopping during the fifth pass.",
+            "Run with gate disabled from bar 1.1.1, crossing the loop end four times and stopping during the fifth pass.",
+            "Run with retrigger behaviour enabled and disabled where applicable, starting at bar 1.1.1, crossing the loop end four times, and stopping during the fifth pass."
+          ],
+          "expected": "Held-note behaviour is documented per host; either explicit note-off+note-on at boundary, sustained note, or active-note resync.",
+          "references": []
+        },
+        {
+          "id": "L2.8",
+          "title": "Automation Inside Loop",
+          "purpose": "Observe automation event timing, ordering relative to MIDI, smoothing or quantization behavior, and live/offline differences.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled if MIDI is part of the automation comparison.",
+            "Initial playhead: bar 1.1.1.",
+            "Automate one continuous parameter and one stepped/enum parameter inside the one-bar loop."
+          ],
+          "steps": [
+            "Run live playback from bar 1.1.1 through four loop wraps, then stop during the fifth pass near bar 2.3.1.",
+            "Capture an offline render from bar 1.1.1 through bar 3.3.1 if supported.",
+            "Compare automation event ordering and timing across passes and modes."
+          ],
+          "expected": "Automation events arrive at consistent times relative to MIDI; live and offline produce comparable sequences modulo cadence.",
+          "references": []
+        }
+      ]
+    },
+    {
+      "id": "L3",
+      "title": "Level 3: Stress and Characterization",
+      "cases": [
+        {
+          "id": "L3.1",
+          "title": "Clip or Session Loops",
+          "purpose": "Determine whether clip workflows expose a usable transport loop, only repeat MIDI/audio events, or report a separate clip-relative timeline.",
+          "setup": [
+            "Audio: use the Amen audio or an equivalent deterministic clip source.",
+            "Tempo: 140 BPM where the host workflow allows it.",
+            "Arrangement loop: record whether it is enabled or disabled.",
+            "Loop: use a one-bar clip/session loop where practical; record exact host start and end values.",
+            "MIDI sidechain: enabled if the clip/session workflow supports it.",
+            "MIDI files: use single-c4-anchor.mid first if MIDI import is available in the clip/session workflow.",
+            "Case-specific setup: Ableton session clip loop, Bitwig clip launcher loop, or a mixed arrangement+clip setup."
+          ],
+          "steps": [
+            "Start capture before launching the clip.",
+            "Launch the clip or scene.",
+            "Let the clip complete four clip-loop wraps.",
+            "Stop during the fifth clip pass where the host allows that timing.",
+            "If arrangement transport is also running, record whether arrangement loop is enabled or disabled.",
+            "Stop the clip first, then stop transport if the host separates those actions.",
+            "Wait two seconds before ending the capture."
+          ],
+          "expected": "Either the host reports a clip-relative loop, or events repeat without transport loop flags; document which.",
+          "references": []
+        },
+        {
+          "id": "L3.2",
+          "title": "Tracker or Pattern Workflow",
+          "purpose": "Characterize non-linear event ordering and pattern-loop semantics.",
+          "setup": [
+            "Audio: use the Amen audio or an equivalent deterministic tracker source.",
+            "Tempo: 140 BPM where the tracker workflow allows it.",
+            "Arrangement loop: use the tracker or pattern loop mechanism.",
+            "Loop: use a one-bar pattern loop where practical; record exact pattern start and end positions.",
+            "MIDI files: use repeated-same-key.mid and overlap-and-choke.mid if the tracker imports MIDI; otherwise configure equivalent repeated note columns or overlapping notes.",
+            "Case-specific setup: Renoise pattern loop or equivalent tracker workflow."
+          ],
+          "steps": [
+            "Capture pattern loop playback for four wraps, then stop during the fifth pass where possible.",
+            "Trigger a pattern jump during playback.",
+            "Capture repeated note columns or overlapping notes where supported."
+          ],
+          "expected": "Pattern-relative timing is reported via transport or only inferable from event timestamps; document which.",
+          "references": []
+        },
+        {
+          "id": "L3.3",
+          "title": "Tempo and Timeline Variants",
+          "purpose": "Decide which host timeline is authoritative and when the plugin should drop to live delayed processing.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM initially; add the requested tempo change or automation for this case.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled if needed to compare event timing against tempo changes.",
+            "Initial playhead: bar 1.1.1.",
+            "Tempo change before the loop and tempo automation inside the loop where supported."
+          ],
+          "steps": [
+            "Capture a tempo change before the loop.",
+            "Capture tempo automation inside the loop from bar 2.1.1 to bar 3.1.1 if supported.",
+            "Capture beat timeline available without valid seconds loop, or vice versa."
+          ],
+          "expected": "Either beats or seconds timeline remains valid; document host-specific behaviour.",
+          "references": []
+        },
+        {
+          "id": "L3.4",
+          "title": "Host Panic and Note Cleanup",
+          "purpose": "Verify whether stale notes and gate state can be cleared reliably.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place boundary-held.mid at project bar 2.1.1.",
+            "Initial playhead: bar 1.1.1."
+          ],
+          "steps": [
+            "Start at bar 1.1.1 and stop playback while a note is held inside the loop.",
+            "Start again at bar 1.1.1 and disable MIDI sidechain while notes are active.",
+            "Start again at bar 1.1.1 and bypass or disable the plugin while notes are active.",
+            "Start again at bar 1.1.1 and remove or mute the MIDI source while playback continues."
+          ],
+          "expected": "Host emits note-off, note-choke, or active-note resync that allows the plugin to clear state.",
+          "references": []
+        },
+        {
+          "id": "L3.5",
+          "title": "Render Mode Variants",
+          "purpose": "Capture render paths not already covered by L1.3, focusing on host-specific freeze, stem render, bounce-in-place, or other alternate render modes.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1; end bar 3.1.1.",
+            "MIDI sidechain: enabled.",
+            "MIDI files: place single-c4-anchor.mid at project bar 2.1.1 for each render mode captured here.",
+            "Plugin parameters: neutral for every render mode.",
+            "Render range: bar 1.1.1 through bar 3.3.1."
+          ],
+          "steps": [
+            "Skip realtime playback and standard offline render if they were already captured in L1.3 for this host.",
+            "Capture freeze, stem render, bounce-in-place, or any other host-specific render path from bar 1.1.1 through bar 3.3.1."
+          ],
+          "expected": "Each render mode has documented transport flags and block cadence.",
+          "references": []
+        },
+        {
+          "id": "L3.6",
+          "title": "Extreme Timing and Latency",
+          "purpose": "Stress event bias, plugin latency compensation, and wrap anchoring.",
+          "setup": [
+            "Audio: place \"140 BPM Loop 5 - The Winstons - Amen.wav\" at bar 1.1.1.",
+            "Tempo: 140 BPM.",
+            "Arrangement loop: enabled.",
+            "Loop: start bar 2.1.1 initially; end bar 3.1.1 initially.",
+            "Loops near project start; loop ends near note boundaries; very small/large buffers."
+          ],
+          "steps": [
+            "Capture with a very small buffer.",
+            "Capture with a very large buffer.",
+            "Capture with high host latency settings.",
+            "Capture with a one-bar loop starting close to project start.",
+            "Capture with the one-bar loop end close to a note boundary."
+          ],
+          "expected": "Event bias and wrap anchoring remain coherent across extremes.",
+          "references": []
+        }
+      ]
+    },
+    {
+      "id": "MIDI",
+      "title": "MIDI Case Library",
+      "cases": [
+        {
+          "id": "M1",
+          "title": "Single Anchor Note",
+          "purpose": "Establish basic note-on/note-off timing, note ID behavior, and pass-to-pass event stability with the least possible ambiguity.",
+          "setup": [
+            "Generated file: single-c4-anchor.mid.",
+            "When placed at the loop start, C4 starts at that same project bar, lasts one quarter note, and uses velocity 100."
+          ]
+        },
+        {
+          "id": "M2",
+          "title": "Sparse Multi-Anchor Notes",
+          "purpose": "Sample host event timing at several loop-relative offsets without same-key or boundary interactions.",
+          "setup": [
+            "Generated file: sparse-multi-anchor.mid.",
+            "When placed at the loop start, notes are C4 at beat 1 for one eighth note, E4 at beat 2 plus two sixteenths for one sixteenth note, G4 at beat 3 plus one sixteenth for one dotted eighth note, and C5 at beat 4 plus three sixteenths for one sixteenth note."
+          ]
+        },
+        {
+          "id": "M3",
+          "title": "Repeated Same-Key Notes",
+          "purpose": "Observe same-key note identity, note-off matching data, event order, and whether hosts reuse or regenerate note IDs across loop passes.",
+          "setup": [
+            "Generated file: repeated-same-key.mid.",
+            "Four adjacent C4 notes across the first half of the loop, all at velocity 96."
+          ]
+        },
+        {
+          "id": "M4",
+          "title": "Same-Sample Transition",
+          "purpose": "Observe same-frame note-off/note-on ordering without adding overlap or gate-boundary ambiguity.",
+          "setup": [
+            "Generated file: same-sample-transition.mid.",
+            "C4 ends exactly when E4 starts, so the host event order at the shared sample can be captured."
+          ]
+        },
+        {
+          "id": "M5",
+          "title": "Overlap and Choke",
+          "purpose": "Observe what the host sends for overlapping notes, note stack cases, and potential choke scenarios.",
+          "setup": [
+            "Generated file: overlap-and-choke.mid.",
+            "Includes overlapping same-key C4 notes and a different-key G4 overlap."
+          ]
+        },
+        {
+          "id": "M6",
+          "title": "Boundary-Held Note",
+          "purpose": "Observe whether the host resends active-note state, emits note-off at wrap, truncates notes, or leaves the plugin to infer held state.",
+          "setup": [
+            "Generated file: boundary-held.mid.",
+            "C4 starts before loop end and extends past the loop boundary."
+          ]
+        },
+        {
+          "id": "M7",
+          "title": "Boundary-Adjacent Notes",
+          "purpose": "Observe host event timing and transport state close to wrap points.",
+          "setup": [
+            "Generated file: boundary-adjacent.mid.",
+            "Includes notes exactly at loop start and close to loop start/end."
+          ]
+        },
+        {
+          "id": "M8",
+          "title": "Velocity Sweep",
+          "purpose": "Observe velocity payload stability across live playback, loop passes, and offline render.",
+          "setup": [
+            "Generated file: velocity-sweep.mid.",
+            "Four C4 notes with increasing velocities."
+          ]
+        },
+        {
+          "id": "M9",
+          "title": "Pitch Sweep",
+          "purpose": "Observe pitch payload stability independently from velocity and note length effects.",
+          "setup": [
+            "Generated file: pitch-sweep.mid.",
+            "Notes step upward from C4 through D4, E4, G4, and C5 with the same length and velocity."
+          ]
+        },
+        {
+          "id": "M10",
+          "title": "Live Edit Source",
+          "purpose": "Distinguish host jitter from intentional edits and discover whether the host sends modified events immediately, on the next pass, or only after transport restart.",
+          "setup": [
+            "Generated file: live-edit-source.mid.",
+            "Start from the imported sparse-note pattern.",
+            "During playback, move one note start earlier by a small amount.",
+            "Move the same note later by a larger amount.",
+            "Change one note pitch.",
+            "Change one note velocity.",
+            "Shorten one note-off."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Submit captures via PR
+    url: https://github.com/nscotto/daw-host-probe-captures
+    about: For larger or recurring contributions, open a PR against the captures repo.

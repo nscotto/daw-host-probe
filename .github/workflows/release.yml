@@ -1,0 +1,243 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag for the release (e.g. v0.1.0). Leave blank for a draft.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            runner: windows-latest
+            archive_ext: zip
+          - os: macos
+            runner: macos-latest
+            archive_ext: zip
+          - os: linux
+            runner: ubuntu-latest
+            archive_ext: tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build tools
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev
+
+      - name: Install macOS tools
+        if: matrix.os == 'macos'
+        run: brew install ninja
+
+      - name: Configure (Unix)
+        if: matrix.os != 'windows'
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            ${{ matrix.os == 'macos' && '-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0' || '' }}
+
+      - name: Configure (Windows)
+        if: matrix.os == 'windows'
+        run: cmake -S . -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+
+          # Copy plugin binaries. .clap is a flat file on Linux/Windows but
+          # a bundle directory on macOS; .vst3 and .component are bundles.
+          # The "*/<name>/*" exclusion drops the inner binary nested inside
+          # the bundle.
+          clap_path=$(find build -name "daw-host-probe.clap" \
+            -not -path "*/_deps/*" -not -path "*/daw-host-probe.clap/*" \
+            -print -quit || true)
+          vst3_path=$(find build -name "daw-host-probe.vst3" \
+            -not -path "*/_deps/*" -not -path "*/daw-host-probe.vst3/*" \
+            -print -quit || true)
+          component_path=$(find build -name "daw-host-probe.component" \
+            -not -path "*/_deps/*" -not -path "*/daw-host-probe.component/*" \
+            -print -quit || true)
+
+          [ -n "$clap_path" ] && cp -R "$clap_path" staging/ || echo "WARNING: no .clap built"
+          [ -n "$vst3_path" ] && cp -R "$vst3_path" staging/ || echo "WARNING: no .vst3 built"
+          if [ "${{ matrix.os }}" = "macos" ] && [ -n "$component_path" ]; then
+            cp -R "$component_path" staging/
+          fi
+
+          # Bundle case library, sample audio, manifest template.
+          cp daw-host-probe-cases.json staging/
+          mkdir -p staging/samples
+          cp samples/*.wav staging/samples/
+          mkdir -p staging/templates
+          cp templates/manifest.json staging/templates/
+
+          # Per-OS install instructions.
+          case "${{ matrix.os }}" in
+            windows)
+              cat > staging/INSTALL.txt <<'EOF'
+          daw-host-probe — Windows install
+
+          1. Copy daw-host-probe.clap to:
+                 %COMMONPROGRAMFILES%\CLAP\
+             Copy daw-host-probe.vst3 to:
+                 %COMMONPROGRAMFILES%\VST3\
+             (Both folders may need to be created.)
+
+          2. Copy daw-host-probe-cases.json next to the binary in EACH plugin
+             folder (CLAP and VST3). The probe needs it at runtime.
+
+          3. The first time the plugin loads, Windows SmartScreen may show
+             "Unknown publisher". This is expected — the build is unsigned.
+
+          4. Rescan plugins in your DAW. The probe shows up as
+             "DAW Host Probe".
+          EOF
+              ;;
+            macos)
+              cat > staging/INSTALL.txt <<'EOF'
+          daw-host-probe — macOS install
+
+          1. Copy daw-host-probe.clap to:
+                 ~/Library/Audio/Plug-Ins/CLAP/
+             Copy daw-host-probe.vst3 to:
+                 ~/Library/Audio/Plug-Ins/VST3/
+             Copy daw-host-probe.component to:
+                 ~/Library/Audio/Plug-Ins/Components/
+
+          2. Copy daw-host-probe-cases.json next to each plugin (inside the
+             plugin folder, alongside the .clap / .vst3 / .component bundle).
+
+          3. macOS will quarantine downloaded bundles. Clear the flag once:
+                 xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/daw-host-probe.clap
+                 xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/daw-host-probe.vst3
+                 xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/daw-host-probe.component
+
+             The build is ad-hoc signed (free, not notarised). On Apple
+             Silicon, ad-hoc signing is required for the plugin to load at
+             all — we do this in CI.
+
+          4. Rescan plugins in your DAW.
+          EOF
+              ;;
+            linux)
+              cat > staging/INSTALL.txt <<'EOF'
+          daw-host-probe — Linux install
+
+          1. Copy daw-host-probe.clap to:
+                 ~/.clap/
+             Copy daw-host-probe.vst3 to:
+                 ~/.vst3/
+
+          2. Copy daw-host-probe-cases.json into each plugin folder so the
+             probe can find it at runtime.
+
+          3. Built on the latest Ubuntu LTS. Requires a reasonably recent
+             distribution; if the plugin fails to load with a glibc version
+             error, please file an issue with your distro and version.
+
+          4. Rescan plugins in your DAW.
+          EOF
+              ;;
+          esac
+
+      - name: Ad-hoc codesign (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          set -euo pipefail
+          for bundle in staging/*.clap staging/*.vst3 staging/*.component; do
+            [ -e "$bundle" ] || continue
+            echo "Signing $bundle"
+            codesign --force --deep --sign - "$bundle"
+          done
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            v="${GITHUB_REF#refs/tags/}"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            v="${{ inputs.tag }}"
+          else
+            v="dev-${GITHUB_SHA::7}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Version: $v"
+
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="daw-host-probe-${{ steps.ver.outputs.version }}-${{ matrix.os }}"
+          mv staging "$name"
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            zip -ry "$name.zip" "$name"
+          else
+            tar -czf "$name.tar.gz" "$name"
+          fi
+          ls -la "$name".*
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $name = "daw-host-probe-${{ steps.ver.outputs.version }}-windows"
+          Rename-Item staging $name
+          Compress-Archive -Path $name -DestinationPath "$name.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daw-host-probe-${{ matrix.os }}
+          path: |
+            *.zip
+            *.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List downloaded archives
+        run: ls -la dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+          generate_release_notes: true
+          draft: true
